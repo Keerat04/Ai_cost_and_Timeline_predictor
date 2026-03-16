@@ -1,15 +1,18 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import bcrypt
+import jwt
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,54 +22,233 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Create the main app without a prefix
-app = FastAPI()
+# JWT config
+JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION = timedelta(days=7)
 
-# Create a router with the /api prefix
+# Security
+security = HTTPBearer()
+
+# Create the main app
+app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
-
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
+# Models
+class User(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    email: str
+    name: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class UserSignup(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
 
-# Add your routes to the router instead of directly to app
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class AuthResponse(BaseModel):
+    token: str
+    user: User
+
+class ProjectPrediction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    prompt: str
+    duration_months: float
+    cost_lakhs: float
+    team: List[str]
+    phases: List[str]
+    tools: List[str]
+    project_type: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class PredictionRequest(BaseModel):
+    prompt: str
+
+class PredictionResponse(BaseModel):
+    id: str
+    duration_months: float
+    cost_lakhs: float
+    team: List[str]
+    phases: List[str]
+    tools: List[str]
+    project_type: str
+
+# Helper functions
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+def create_token(user_id: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "exp": datetime.now(timezone.utc) + JWT_EXPIRATION
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def verify_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload["user_id"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    token = credentials.credentials
+    return verify_token(token)
+
+# Auth endpoints
+@api_router.post("/auth/signup", response_model=AuthResponse)
+async def signup(input: UserSignup):
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": input.email}, {"_id": 0})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user
+    user = User(email=input.email, name=input.name)
+    user_doc = user.model_dump()
+    user_doc['created_at'] = user_doc['created_at'].isoformat()
+    user_doc['password'] = hash_password(input.password)
+    
+    await db.users.insert_one(user_doc)
+    
+    # Create token
+    token = create_token(user.id)
+    
+    return AuthResponse(token=token, user=user)
+
+@api_router.post("/auth/login", response_model=AuthResponse)
+async def login(input: UserLogin):
+    # Find user
+    user_doc = await db.users.find_one({"email": input.email}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Verify password
+    if not verify_password(input.password, user_doc['password']):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    # Convert timestamp
+    if isinstance(user_doc['created_at'], str):
+        user_doc['created_at'] = datetime.fromisoformat(user_doc['created_at'])
+    
+    user = User(**user_doc)
+    token = create_token(user.id)
+    
+    return AuthResponse(token=token, user=user)
+
+@api_router.get("/auth/me", response_model=User)
+async def get_me(user_id: str = Depends(get_current_user)):
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if isinstance(user_doc['created_at'], str):
+        user_doc['created_at'] = datetime.fromisoformat(user_doc['created_at'])
+    
+    return User(**user_doc)
+
+# Prediction endpoint
+@api_router.post("/predict", response_model=PredictionResponse)
+async def predict(input: PredictionRequest, user_id: str = Depends(get_current_user)):
+    try:
+        # Initialize LLM chat
+        chat = LlmChat(
+            api_key=os.environ['EMERGENT_LLM_KEY'],
+            session_id=f"prediction_{user_id}_{uuid.uuid4()}",
+            system_message="""You are an expert project estimation AI. You analyze project descriptions and provide accurate estimates for duration, cost, team composition, phases, and tools.
+
+You must respond with ONLY valid JSON in this exact format:
+{
+  "duration_months": <number>,
+  "cost_lakhs": <number>,
+  "team": ["role1", "role2", ...],
+  "phases": ["phase1", "phase2", ...],
+  "tools": ["tool1", "tool2", ...],
+  "project_type": "software|construction|industrial|energy"
+}
+
+Consider:
+- Project scale and complexity
+- Team size requirements
+- Technology stack
+- Industry standards
+- Risk factors
+
+Provide realistic estimates based on project description."""
+        ).with_model("openai", "gpt-5.2")
+        
+        # Send message
+        user_message = UserMessage(text=f"Project Description: {input.prompt}")
+        response_text = await chat.send_message(user_message)
+        
+        # Parse JSON response
+        import json
+        # Extract JSON from response (handle markdown code blocks)
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+        
+        prediction_data = json.loads(response_text.strip())
+        
+        # Create prediction record
+        prediction = ProjectPrediction(
+            user_id=user_id,
+            prompt=input.prompt,
+            duration_months=prediction_data['duration_months'],
+            cost_lakhs=prediction_data['cost_lakhs'],
+            team=prediction_data['team'],
+            phases=prediction_data['phases'],
+            tools=prediction_data['tools'],
+            project_type=prediction_data['project_type']
+        )
+        
+        # Save to database
+        pred_doc = prediction.model_dump()
+        pred_doc['created_at'] = pred_doc['created_at'].isoformat()
+        await db.predictions.insert_one(pred_doc)
+        
+        return PredictionResponse(
+            id=prediction.id,
+            duration_months=prediction.duration_months,
+            cost_lakhs=prediction.cost_lakhs,
+            team=prediction.team,
+            phases=prediction.phases,
+            tools=prediction.tools,
+            project_type=prediction.project_type
+        )
+    except Exception as e:
+        logging.error(f"Prediction error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
+
+# Get user's prediction history
+@api_router.get("/projects", response_model=List[ProjectPrediction])
+async def get_projects(user_id: str = Depends(get_current_user)):
+    predictions = await db.predictions.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    for pred in predictions:
+        if isinstance(pred['created_at'], str):
+            pred['created_at'] = datetime.fromisoformat(pred['created_at'])
+    
+    return predictions
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "AI Project Cost & Timeline Predictor API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
-
-# Include the router in the main app
+# Include router
 app.include_router(api_router)
 
 app.add_middleware(
@@ -77,7 +259,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
