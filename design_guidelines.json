@@ -1,0 +1,144 @@
+{
+  "identity": {
+    "persona": "E1: The Anti-AI Designer",
+    "mission": "Create a project prediction tool that feels like a high-end architectural studio, not a generic SaaS. Precision, Authority, and Structural Beauty.",
+    "principles": [
+      "Fusion over Imitation: Mix 'Swiss Typographic Poster' with 'Industrial Blueprint' aesthetics.",
+      "Emotion First: The user should feel 'In Control' and 'Future-Ready'.",
+      "Content is King: Data is the hero. Use whitespace to let numbers breathe.",
+      "Zoom In: Focus on the 'Cost' and 'Time' metrics like they are headlines."
+    ]
+  },
+  "typography": {
+    "primary_font": "Clash Display",
+    "secondary_font": "General Sans",
+    "cdn_links": [
+      "https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=general-sans@400,500,600&display=swap"
+    ],
+    "rules": {
+      "headings": "font-clash font-semibold tracking-tight text-slate-900 dark:text-white",
+      "subheadings": "font-general font-medium tracking-wide uppercase text-xs text-slate-500",
+      "body": "font-general text-base leading-relaxed text-slate-600 dark:text-slate-300",
+      "ui_text": "font-general text-sm font-medium tracking-normal",
+      "numbers": "font-clash font-bold tabular-nums"
+    }
+  },
+  "colors": {
+    "theme_strategy": "Smart Toggle (Default: Light for planning, Dark available for deep work)",
+    "palette": {
+      "primary": {
+        "name": "Industrial Slate",
+        "hex": "#0F172A",
+        "usage": "Headings, Primary Buttons, Strong Borders"
+      },
+      "secondary": {
+        "name": "Precision Teal",
+        "hex": "#0D9488",
+        "usage": "Success states, Progress bars, Active links"
+      },
+      "accent": {
+        "name": "Safety Orange",
+        "hex": "#F97316",
+        "usage": "Call to Actions (High Priority), Alerts, Highlights"
+      },
+      "background": {
+        "light": "#F8FAFC",
+        "dark": "#020617",
+        "paper": "#FFFFFF"
+      },
+      "surface": {
+        "light": "#FFFFFF",
+        "dark": "#0F172A"
+      }
+    },
+    "gradients": {
+      "hero_glow": "bg-gradient-to-r from-slate-900 to-slate-700",
+      "tracing_beam": "linear-gradient(90deg, transparent, #0D9488, transparent)"
+    }
+  },
+  "visual_enhancers": {
+    "texture": "Add a subtle 'noise' overlay (opacity 0.03) to the background to give it a paper/concrete feel. No dead flat colors.",
+    "borders": "Use 'Micro-Borders'. 1px solid borders in Slate-200. On hover, darken to Slate-900. Sharp, not soft.",
+    "shadows": "Hard shadows for cards: 'shadow-[4px_4px_0px_0px_rgba(15,23,42,0.1)]'. No soft blurs. Architectural feel.",
+    "glassmorphism": "Use sparingly. Only for the sticky navigation. 'backdrop-blur-md bg-white/80 border-b border-slate-200/50'."
+  },
+  "layout": {
+    "spacing_scale": "2x Standard. If you think p-4 is enough, use p-8.",
+    "grid_system": {
+      "dashboard": "Bento Grid (Mode B). Dense, interlocking rectangular cards. No gaps in data.",
+      "landing": "Tetris Grid (Mode A). Asymmetrical. Large typography paired with negative space."
+    },
+    "container_padding": "px-6 md:px-12 lg:px-24"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white rounded-none px-8 py-3 hover:bg-slate-800 transition-all shadow-[4px_4px_0px_0px_#0D9488] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px]",
+      "secondary": "bg-white border-2 border-slate-200 text-slate-900 rounded-none px-8 py-3 hover:border-slate-900 transition-colors"
+    },
+    "cards": {
+      "default": "bg-white border border-slate-200 p-8 rounded-sm hover:border-slate-400 transition-colors relative overflow-hidden",
+      "prediction_result": "Use the 'Tracing Beam' effect. A glowing teal line moving around the border to signify 'AI Calculation'."
+    },
+    "inputs": {
+      "style": "bg-slate-50 border-b-2 border-slate-200 focus:border-slate-900 rounded-t-sm px-4 py-3 outline-none transition-colors placeholder:text-slate-400",
+      "label": "uppercase text-xs font-bold text-slate-500 mb-1 block"
+    }
+  },
+  "motion": {
+    "entrance": "Staggered fade-up for dashboard elements. 'initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}} transition={{duration: 0.4, delay: i * 0.1}}'",
+    "interaction": "Buttons and Cards must have 'active:scale-95' for tactile feedback.",
+    "loading": "Use an ASCII-style spinner or a 'Construction Progress Bar' (striped) instead of a generic circle loader."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "hero_texture",
+        "url": "https://images.unsplash.com/photo-1760239037245-a372db8630f3?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "desc": "Abstract blue/white geometric pattern. Use as a low-opacity background overlay (opacity-10) in the Hero section."
+      },
+      {
+        "category": "construction_card",
+        "url": "https://images.unsplash.com/photo-1761227390482-bccb032eeea6?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "desc": "Modern building under construction. Use for the 'Construction Projects' selection card."
+      },
+      {
+        "category": "tech_card",
+        "url": "https://images.unsplash.com/photo-1640696085101-12085802bcf3?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "desc": "Wires/Abstract Tech. Use for the 'Software Projects' selection card."
+      }
+    ],
+    "icons": "Use 'Phosphor Icons' (Regular weight). They look technical and precise."
+  },
+  "pages": {
+    "landing": {
+      "hero": "Split screen or Center-Heavy. Headline: 'Predict the Future of Your Build.' Subtext: 'AI-driven cost and timeline estimation for the modern era.'",
+      "features": "Bento grid showing 'Cost Accuracy', 'Timeline Prediction', and 'Team Composition' as widget-style cards."
+    },
+    "auth": {
+      "layout": "Split screen. Left side: Form. Right side: The 'Construction Card' image with a dark overlay and a quote about planning.",
+      "style": "Minimalist. No distractions."
+    },
+    "dashboard": {
+      "layout": "Sidebar navigation (collapsible). Main area: 'Project Input' (Text Area) on top, 'Results Grid' below.",
+      "results_panel": "Must look like a 'Mission Report'. distinct sections for Cost, Time, Team. Use counters that roll up to the final number."
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure Slate-500 text is only used on White. Use Slate-600 for better legibility.",
+    "focus": "Focus rings must be 'ring-2 ring-slate-900 ring-offset-2'.",
+    "labels": "All form inputs must have visible labels."
+  },
+  "universal_guidelines": [
+    "Do not use gradients for text.",
+    "Do not use rounded-xl or rounded-2xl. Keep it sharp (rounded-sm or rounded-md).",
+    "Do not center-align long text blocks.",
+    "Use data-testid for all interactive elements."
+  ],
+  "instructions_to_main_agent": [
+    "1. Install 'clsx' and 'tailwind-merge' for class handling.",
+    "2. Setup the font import in index.css immediately.",
+    "3. Create the 'Layout' component first with the Sidebar and Header.",
+    "4. Build the 'PredictionCard' component with the tracing beam effect before assembling the dashboard.",
+    "5. Use 'recharts' for any data visualization (e.g., cost breakdown pie chart)."
+  ]
+}
