@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../utils/cn';
 
-const Textarea = ({ label, error, className, ...props }) => {
+const Textarea = ({ label, error, className, 'data-testid': dataTestId, ...props }) => {
   return (
     <div className="w-full">
       {label && (
@@ -15,6 +15,7 @@ const Textarea = ({ label, error, className, ...props }) => {
           error && 'border-red-500 focus:border-red-500',
           className
         )}
+        data-testid={dataTestId}
         {...props}
       />
       {error && <p className="text-red-500 text-xs mt-1 font-general">{error}</p>}
