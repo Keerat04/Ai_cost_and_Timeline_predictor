@@ -5,6 +5,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
+import ForgotPassword from "./pages/ForgotPassword";
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -53,6 +54,14 @@ function App() {
             element={
               <PublicRoute>
                 <Signup />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPassword />
               </PublicRoute>
             }
           />

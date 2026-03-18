@@ -12,6 +12,9 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import bcrypt
 import jwt
+import random
+import asyncio
+import resend
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
@@ -26,6 +29,12 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'your-secret-key')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION = timedelta(days=7)
+
+# Resend config
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+if RESEND_API_KEY and RESEND_API_KEY != 'placeholder_add_your_key_here':
+    resend.api_key = RESEND_API_KEY
 
 # Security
 security = HTTPBearer()
@@ -80,6 +89,18 @@ class PredictionResponse(BaseModel):
     tools: List[str]
     project_type: str
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+    otp: Optional[str] = None  # Only for testing when email not configured
+
+class VerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+
 # Helper functions
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -106,6 +127,45 @@ def verify_token(token: str) -> str:
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     token = credentials.credentials
     return verify_token(token)
+
+def generate_otp() -> str:
+    """Generate a 6-digit OTP"""
+    return str(random.randint(100000, 999999))
+
+async def send_otp_email(email: str, otp: str) -> bool:
+    """Send OTP via email"""
+    if not RESEND_API_KEY or RESEND_API_KEY == 'placeholder_add_your_key_here':
+        logging.warning(f"Email not configured. OTP for {email}: {otp}")
+        return False
+    
+    try:
+        html_content = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #0F172A;">Password Reset OTP</h2>
+                <p>You requested to reset your password for ProjectPredict.</p>
+                <div style="background-color: #F8FAFC; border: 2px solid #0D9488; padding: 20px; margin: 20px 0; text-align: center;">
+                    <h1 style="color: #0F172A; font-size: 36px; margin: 0; letter-spacing: 8px;">{otp}</h1>
+                </div>
+                <p>This OTP is valid for 10 minutes.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+                <p style="color: #64748B; font-size: 12px; margin-top: 30px;">ProjectPredict - AI Project Cost & Timeline Predictor</p>
+            </body>
+        </html>
+        """
+        
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [email],
+            "subject": "Password Reset OTP - ProjectPredict",
+            "html": html_content
+        }
+        
+        await asyncio.to_thread(resend.Emails.send, params)
+        return True
+    except Exception as e:
+        logging.error(f"Failed to send OTP email: {str(e)}")
+        return False
 
 # Auth endpoints
 @api_router.post("/auth/signup", response_model=AuthResponse)
@@ -158,6 +218,71 @@ async def get_me(user_id: str = Depends(get_current_user)):
         user_doc['created_at'] = datetime.fromisoformat(user_doc['created_at'])
     
     return User(**user_doc)
+
+@api_router.post("/auth/forgot-password", response_model=ForgotPasswordResponse)
+async def forgot_password(input: ForgotPasswordRequest):
+    # Check if user exists
+    user_doc = await db.users.find_one({"email": input.email}, {"_id": 0})
+    if not user_doc:
+        # Don't reveal if email exists for security
+        return ForgotPasswordResponse(message="If this email exists, an OTP has been sent")
+    
+    # Generate OTP
+    otp = generate_otp()
+    otp_expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
+    
+    # Store OTP in database
+    await db.password_resets.delete_many({"email": input.email})  # Remove old OTPs
+    await db.password_resets.insert_one({
+        "email": input.email,
+        "otp": otp,
+        "expiry": otp_expiry.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Send OTP via email
+    email_sent = await send_otp_email(input.email, otp)
+    
+    # For testing: if email not configured, return OTP in response
+    if not email_sent:
+        return ForgotPasswordResponse(
+            message="Email not configured. OTP generated for testing.",
+            otp=otp
+        )
+    
+    return ForgotPasswordResponse(message="OTP sent to your email")
+
+@api_router.post("/auth/reset-password")
+async def reset_password(input: VerifyOTPRequest):
+    # Find OTP record
+    otp_doc = await db.password_resets.find_one({"email": input.email}, {"_id": 0})
+    if not otp_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    
+    # Check if OTP matches
+    if otp_doc['otp'] != input.otp:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Check if OTP expired
+    expiry = datetime.fromisoformat(otp_doc['expiry'])
+    if datetime.now(timezone.utc) > expiry:
+        await db.password_resets.delete_one({"email": input.email})
+        raise HTTPException(status_code=400, detail="OTP has expired")
+    
+    # Update user password
+    hashed_password = hash_password(input.new_password)
+    result = await db.users.update_one(
+        {"email": input.email},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete used OTP
+    await db.password_resets.delete_one({"email": input.email})
+    
+    return {"message": "Password reset successful"}
 
 # Prediction endpoint
 @api_router.post("/predict", response_model=PredictionResponse)

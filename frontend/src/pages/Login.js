@@ -82,6 +82,16 @@ const Login = () => {
               </div>
             )}
             
+            <div className="text-right">
+              <Link 
+                to="/forgot-password" 
+                className="font-general text-sm text-slate-600 hover:text-slate-900 hover:underline"
+                data-testid="forgot-password-link"
+              >
+                Forgot password?
+              </Link>
+            </div>
+            
             <Button
               type="submit"
               variant="primary"
