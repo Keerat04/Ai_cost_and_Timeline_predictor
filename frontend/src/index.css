@@ -78,6 +78,12 @@ code {
         @apply bg-background text-foreground;
         font-family: 'General Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     }
+    #emergent-badge {
+        display: none !important;
+        visibility: hidden !important;
+        z-index: -9999 !important;
+        opacity: 0 !important;
+    }
 }
 
 @layer utilities {
