@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import { House } from 'phosphor-react';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -45,7 +46,10 @@ const Signup = () => {
       {/* Left Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8" data-testid="signup-form-container">
         <div className="w-full max-w-md">
-          <div className="mb-12">
+          <div className="mb-12 flex items-center gap-3">
+            <Link to="/" className="text-slate-900 hover:text-teal-600 transition-colors" data-testid="home-icon" aria-label="Home">
+              <House size={24} weight="regular" />
+            </Link>
             <Link to="/" className="font-clash font-semibold text-2xl text-slate-900">ProjectPredict</Link>
           </div>
           

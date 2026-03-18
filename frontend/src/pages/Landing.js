@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
-import { Cube, Lightning, Users, ChartBar } from 'phosphor-react';
+import { Cube, Lightning, Users, ChartBar, House } from 'phosphor-react';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -11,7 +11,17 @@ const Landing = () => {
       {/* Header */}
       <header className="glass-nav border-b border-slate-200/50 fixed top-0 left-0 right-0 z-50">
         <div className="px-6 md:px-12 lg:px-24 py-4 flex justify-between items-center">
-          <h1 className="font-clash font-semibold text-2xl text-slate-900">ProjectPredict</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="text-slate-900 hover:text-teal-600 transition-colors"
+              data-testid="home-icon"
+              aria-label="Home"
+            >
+              <House size={24} weight="regular" />
+            </button>
+            <h1 className="font-clash font-semibold text-2xl text-slate-900">ProjectPredict</h1>
+          </div>
           <div className="flex gap-4">
             <Button
               variant="secondary"
