@@ -17,6 +17,22 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const formatCost = (minLakhs, maxLakhs) => {
+    // If max value exceeds 99 lakhs, convert to crores
+    if (maxLakhs > 99) {
+      const minCrores = (minLakhs / 100).toFixed(2);
+      const maxCrores = (maxLakhs / 100).toFixed(2);
+      return {
+        display: `₹${minCrores} - ${maxCrores}`,
+        unit: 'Crores'
+      };
+    }
+    return {
+      display: `₹${minLakhs} - ${maxLakhs}`,
+      unit: 'Lakhs'
+    };
+  };
+
   const handlePredict = async () => {
     if (!prompt.trim()) {
       setError('Please describe your project');
@@ -144,11 +160,13 @@ const Dashboard = () => {
                   <div className="flex items-start gap-4">
                     <CurrencyDollar size={32} weight="regular" className="text-orange-500 flex-shrink-0" />
                     <div>
-                      <p className="uppercase text-xs font-bold text-slate-500 mb-1 font-general">Estimated Cost</p>
+                      <p className="uppercase text-xs font-bold text-slate-500 mb-1 font-general">Estimated Cost Range</p>
                       <p className="font-clash font-bold text-4xl text-slate-900 tabular-nums">
-                        ₹{prediction.cost_lakhs}
+                        {formatCost(prediction.cost_min_lakhs, prediction.cost_max_lakhs).display}
                       </p>
-                      <p className="font-general text-sm text-slate-600 mt-1">Lakhs</p>
+                      <p className="font-general text-sm text-slate-600 mt-1">
+                        {formatCost(prediction.cost_min_lakhs, prediction.cost_max_lakhs).unit}
+                      </p>
                     </div>
                   </div>
                 </Card>

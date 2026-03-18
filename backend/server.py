@@ -70,7 +70,8 @@ class ProjectPrediction(BaseModel):
     user_id: str
     prompt: str
     duration_months: float
-    cost_lakhs: float
+    cost_min_lakhs: float
+    cost_max_lakhs: float
     team: List[str]
     phases: List[str]
     tools: List[str]
@@ -83,7 +84,8 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     id: str
     duration_months: float
-    cost_lakhs: float
+    cost_min_lakhs: float
+    cost_max_lakhs: float
     team: List[str]
     phases: List[str]
     tools: List[str]
@@ -297,19 +299,28 @@ async def predict(input: PredictionRequest, user_id: str = Depends(get_current_u
 You must respond with ONLY valid JSON in this exact format:
 {
   "duration_months": <number>,
-  "cost_lakhs": <number>,
+  "cost_min_lakhs": <number>,
+  "cost_max_lakhs": <number>,
   "team": ["role1", "role2", ...],
   "phases": ["phase1", "phase2", ...],
   "tools": ["tool1", "tool2", ...],
   "project_type": "software|construction|industrial|energy"
 }
 
+IMPORTANT COST REQUIREMENTS:
+- Always provide cost as a RANGE (cost_min_lakhs and cost_max_lakhs)
+- The range should reflect uncertainty and risk factors (typically 20-30% variance)
+- cost_min_lakhs should be the lower bound estimate
+- cost_max_lakhs should be the upper bound estimate
+- Both values should be in Indian Lakhs (1 Lakh = 100,000)
+
 Consider:
 - Project scale and complexity
 - Team size requirements
 - Technology stack
 - Industry standards
-- Risk factors
+- Risk factors and contingencies
+- Market rates for resources
 
 Provide realistic estimates based on project description."""
         ).with_model("openai", "gpt-5.2")
@@ -333,7 +344,8 @@ Provide realistic estimates based on project description."""
             user_id=user_id,
             prompt=input.prompt,
             duration_months=prediction_data['duration_months'],
-            cost_lakhs=prediction_data['cost_lakhs'],
+            cost_min_lakhs=prediction_data['cost_min_lakhs'],
+            cost_max_lakhs=prediction_data['cost_max_lakhs'],
             team=prediction_data['team'],
             phases=prediction_data['phases'],
             tools=prediction_data['tools'],
@@ -348,7 +360,8 @@ Provide realistic estimates based on project description."""
         return PredictionResponse(
             id=prediction.id,
             duration_months=prediction.duration_months,
-            cost_lakhs=prediction.cost_lakhs,
+            cost_min_lakhs=prediction.cost_min_lakhs,
+            cost_max_lakhs=prediction.cost_max_lakhs,
             team=prediction.team,
             phases=prediction.phases,
             tools=prediction.tools,
