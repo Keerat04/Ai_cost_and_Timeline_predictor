@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -16,6 +16,8 @@ const Dashboard = () => {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const formatCost = (minLakhs, maxLakhs) => {
     // If max value exceeds 99 lakhs, convert to crores
@@ -33,6 +35,22 @@ const Dashboard = () => {
     };
   };
 
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const response = await axios.get(`${API_URL}/projects`);
+      setHistory(response.data);
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
   const handlePredict = async () => {
     if (!prompt.trim()) {
       setError('Please describe your project');
@@ -46,7 +64,9 @@ const Dashboard = () => {
     try {
       const response = await axios.post(`${API_URL}/predict`, { prompt });
       setPrediction(response.data);
-      setPrompt('');
+      // Don't clear the prompt - keep it visible
+      // Refresh history after new prediction
+      fetchHistory();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to generate prediction. Please try again.');
     } finally {
@@ -237,6 +257,49 @@ const Dashboard = () => {
                   ))}
                 </div>
               </Card>
+            </div>
+          )}
+
+          {/* Search History */}
+          {history.length > 0 && (
+            <div className="mt-12" data-testid="search-history">
+              <h3 className="font-clash font-semibold text-2xl text-slate-900 mb-6">
+                Your Search History
+              </h3>
+              <div className="space-y-4">
+                {history.map((item, index) => (
+                  <Card 
+                    key={item.id || index} 
+                    className="hover:border-teal-400 cursor-pointer"
+                    onClick={() => {
+                      setPrompt(item.prompt);
+                      setPrediction(item);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    data-testid={`history-item-${index}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <p className="font-general text-slate-900 mb-2 line-clamp-2">
+                          {item.prompt}
+                        </p>
+                        <div className="flex gap-4 text-sm text-slate-600 font-general">
+                          <span>Duration: {item.duration_months} months</span>
+                          <span>•</span>
+                          <span>
+                            Cost: {formatCost(item.cost_min_lakhs, item.cost_max_lakhs).display} {formatCost(item.cost_min_lakhs, item.cost_max_lakhs).unit}
+                          </span>
+                          <span>•</span>
+                          <span className="capitalize">{item.project_type}</span>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-500 font-general whitespace-nowrap">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
         </div>

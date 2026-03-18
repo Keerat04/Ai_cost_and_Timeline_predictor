@@ -372,13 +372,20 @@ Provide realistic estimates based on project description."""
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
 # Get user's prediction history
-@api_router.get("/projects", response_model=List[ProjectPrediction])
+@api_router.get("/projects")
 async def get_projects(user_id: str = Depends(get_current_user)):
     predictions = await db.predictions.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).to_list(100)
     
+    # Handle backward compatibility for old predictions
     for pred in predictions:
         if isinstance(pred['created_at'], str):
             pred['created_at'] = datetime.fromisoformat(pred['created_at'])
+        
+        # Convert old format to new format
+        if 'cost_lakhs' in pred and 'cost_min_lakhs' not in pred:
+            cost = pred.pop('cost_lakhs')
+            pred['cost_min_lakhs'] = cost * 0.85  # -15% for min
+            pred['cost_max_lakhs'] = cost * 1.15  # +15% for max
     
     return predictions
 
