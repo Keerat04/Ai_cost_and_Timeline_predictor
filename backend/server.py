@@ -221,6 +221,69 @@ async def get_me(user_id: str = Depends(get_current_user)):
     
     return User(**user_doc)
 
+class UpdateProfileRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@api_router.put("/auth/profile")
+async def update_profile(input: UpdateProfileRequest, user_id: str = Depends(get_current_user)):
+    # Get current user
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = {}
+    
+    # Update name if provided
+    if input.name:
+        update_data['name'] = input.name
+    
+    # Update email if provided
+    if input.email:
+        # Check if email is already taken by another user
+        existing_user = await db.users.find_one({"email": input.email, "id": {"$ne": user_id}}, {"_id": 0})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already in use by another account")
+        update_data['email'] = input.email
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    # Update user
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    
+    # Return updated user
+    updated_user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if isinstance(updated_user['created_at'], str):
+        updated_user['created_at'] = datetime.fromisoformat(updated_user['created_at'])
+    
+    return User(**updated_user)
+
+@api_router.put("/auth/change-password")
+async def change_password(input: ChangePasswordRequest, user_id: str = Depends(get_current_user)):
+    # Get current user
+    user_doc = await db.users.find_one({"id": user_id}, {"_id": 0})
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Verify current password
+    if not verify_password(input.current_password, user_doc['password']):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Validate new password
+    if len(input.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Update password
+    hashed_password = hash_password(input.new_password)
+    await db.users.update_one({"id": user_id}, {"$set": {"password": hashed_password}})
+    
+    return {"message": "Password changed successfully"}
+
 @api_router.post("/auth/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(input: ForgotPasswordRequest):
     # Check if user exists

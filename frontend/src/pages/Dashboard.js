@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import Card from '../components/Card';
 import axios from 'axios';
-import { SignOut, Clock, CurrencyDollar, Users, ListChecks, Wrench, House, ArrowLeft } from 'phosphor-react';
+import { SignOut, Clock, CurrencyDollar, Users, ListChecks, Wrench, House, ArrowLeft, UserCircle } from 'phosphor-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -97,7 +97,16 @@ const Dashboard = () => {
             <div className="w-px h-6 bg-slate-200"></div>
             <h1 className="font-clash font-semibold text-2xl text-slate-900">ProjectPredict</h1>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/profile')}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+              data-testid="profile-button"
+              aria-label="Profile"
+              title="Profile Settings"
+            >
+              <UserCircle size={24} weight="regular" />
+            </button>
             <span className="font-general text-sm text-slate-600" data-testid="user-greeting">
               Welcome, {user?.name}
             </span>
