@@ -5,7 +5,7 @@ import Button from '../components/Button';
 import Textarea from '../components/Textarea';
 import Card from '../components/Card';
 import axios from 'axios';
-import { SignOut, Clock, CurrencyDollar, Users, ListChecks, Wrench, House } from 'phosphor-react';
+import { SignOut, Clock, CurrencyDollar, Users, ListChecks, Wrench, House, ArrowLeft } from 'phosphor-react';
 
 const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -84,15 +84,17 @@ const Dashboard = () => {
       {/* Header */}
       <header className="glass-nav border-b border-slate-200/50">
         <div className="px-6 md:px-12 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/dashboard')}
-              className="text-slate-900 hover:text-teal-600 transition-colors"
-              data-testid="home-icon"
-              aria-label="Home"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors font-general text-sm"
+              data-testid="back-button"
+              aria-label="Back to Home"
             >
-              <House size={24} weight="regular" />
+              <ArrowLeft size={20} weight="bold" />
+              Back
             </button>
+            <div className="w-px h-6 bg-slate-200"></div>
             <h1 className="font-clash font-semibold text-2xl text-slate-900">ProjectPredict</h1>
           </div>
           <div className="flex items-center gap-6">
