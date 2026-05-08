@@ -11,7 +11,7 @@ const API_URL = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, updateUser } = useAuth();
   
   // Profile form state
   const [profileData, setProfileData] = useState({
@@ -59,6 +59,8 @@ const Profile = () => {
         name: response.data.name,
         email: response.data.email
       });
+      // Update AuthContext so other pages reflect the change
+      updateUser(response.data);
     } catch (err) {
       setProfileError(err.response?.data?.detail || 'Failed to update profile');
     } finally {

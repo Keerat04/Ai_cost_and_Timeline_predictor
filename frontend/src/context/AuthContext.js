@@ -31,6 +31,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
+  const refreshUser = async () => {
+    if (token) {
+      await fetchUser();
+    }
+  };
+
   const login = async (email, password) => {
     const response = await axios.post(`${API_URL}/auth/login`, { email, password });
     const { token, user } = response.data;
@@ -59,7 +69,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, signup, logout, loading, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
